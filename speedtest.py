@@ -6,6 +6,7 @@ import argparse
 import http.client
 import sys
 import time
+import urllib.parse
 import urllib.request
 
 COUNT = 10
@@ -16,6 +17,8 @@ USER_AGENT = "speedtest.py/1.0"
 
 def fetch(url: str) -> tuple[int, float]:
     """Download url once; return (body bytes, seconds from request start to the last byte)."""
+    if urllib.parse.urlsplit(url).scheme not in ("http", "https"):
+        raise ValueError(f"not an http(s) URL: {url}")
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     start = time.perf_counter()
     with urllib.request.urlopen(request, timeout=TIMEOUT) as response:

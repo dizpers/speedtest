@@ -1,6 +1,7 @@
 import contextlib
 import http.client
 import io
+import pathlib
 import socket
 import threading
 import unittest
@@ -66,6 +67,11 @@ class HttpTest(unittest.TestCase):
     def test_fetch_truncated_body_raises(self):
         with self.assertRaises(http.client.IncompleteRead):
             speedtest.fetch(self.base + "/truncated")
+
+    def test_fetch_rejects_non_http_url(self):
+        # urllib would happily read a local file and report it as download speed
+        with self.assertRaises(ValueError):
+            speedtest.fetch(pathlib.Path(__file__).resolve().as_uri())
 
     def test_cli_makes_ten_requests_and_prints_summary(self):
         out = io.StringIO()
