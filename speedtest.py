@@ -3,6 +3,7 @@
 from __future__ import annotations  # `X | None` annotations on Python 3.9
 
 import argparse
+import http.client
 import sys
 import time
 import urllib.request
@@ -37,10 +38,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     results = []
-    for i in range(1, COUNT + 1):
-        size, seconds = fetch(args.url)
-        print(f"{i:2}/{COUNT}  {size / MB:8.2f} MB  {seconds:7.3f} s")
-        results.append((size, seconds))
+    try:
+        for i in range(1, COUNT + 1):
+            size, seconds = fetch(args.url)
+            print(f"{i:2}/{COUNT}  {size / MB:8.2f} MB  {seconds:7.3f} s")
+            results.append((size, seconds))
+    # OSError: HTTP status, DNS, connection, timeout; HTTPException: truncated body;
+    # ValueError: malformed URL
+    except (OSError, http.client.HTTPException, ValueError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
 
     total_bytes, avg_seconds, mb_per_s = summarize(results)
     print(f"Downloaded: {total_bytes / MB:.2f} MB in {COUNT} requests")

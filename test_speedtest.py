@@ -1,6 +1,7 @@
 import contextlib
 import http.client
 import io
+import socket
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -15,6 +16,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         Handler.hits += 1
+        if self.path == "/missing":
+            self.send_error(404)
+            return
         self.send_response(200)
         if self.path != "/no-length":
             self.send_header("Content-Length", str(BODY_SIZE))
@@ -71,3 +75,17 @@ class HttpTest(unittest.TestCase):
         self.assertEqual(Handler.hits, 10)
         self.assertIn("Downloaded: 1.00 MB in 10 requests", out.getvalue())  # 10 x 100 000 B
         self.assertIn("MB/s", out.getvalue())
+
+    def test_cli_reports_errors_and_exits_1(self):
+        closed = socket.socket()
+        closed.bind(("127.0.0.1", 0))
+        closed_url = f"http://127.0.0.1:{closed.getsockname()[1]}/"
+        closed.close()
+        for url in (self.base + "/missing", self.base + "/truncated", closed_url, "not-a-url"):
+            with self.subTest(url=url):
+                out, err = io.StringIO(), io.StringIO()
+                with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                    code = speedtest.main([url])
+                self.assertEqual(code, 1)
+                self.assertTrue(err.getvalue().startswith("error: "), err.getvalue())
+                self.assertNotIn("Speed:", out.getvalue())
