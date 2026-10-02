@@ -4,12 +4,14 @@ import io
 import pathlib
 import socket
 import threading
+import time
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import speedtest
 
 BODY_SIZE = 100_000
+DELAY = 0.1
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -25,10 +27,15 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Location", "/ok")
             self.end_headers()
             return
+        slow = self.path == "/slow"
+        if slow:
+            time.sleep(DELAY)
         self.send_response(200)
         if self.path != "/no-length":
             self.send_header("Content-Length", str(BODY_SIZE))
         self.end_headers()
+        if slow:
+            time.sleep(DELAY)
         # HTTP/1.0 handler: the server closes the connection after the body
         self.wfile.write(b"x" * (BODY_SIZE // 2 if self.path == "/truncated" else BODY_SIZE))
 
@@ -64,6 +71,11 @@ class HttpTest(unittest.TestCase):
         size, seconds = speedtest.fetch(self.base + "/ok")
         self.assertEqual(size, BODY_SIZE)
         self.assertGreater(seconds, 0)
+
+    def test_fetch_times_from_request_start_to_last_byte(self):
+        # /slow waits DELAY before the headers and DELAY before the body
+        _, seconds = speedtest.fetch(self.base + "/slow")
+        self.assertGreaterEqual(seconds, 2 * DELAY)
 
     def test_fetch_follows_redirects(self):
         size, _ = speedtest.fetch(self.base + "/redirect")
