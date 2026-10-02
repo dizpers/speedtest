@@ -20,6 +20,11 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/missing":
             self.send_error(404)
             return
+        if self.path == "/redirect":
+            self.send_response(302)
+            self.send_header("Location", "/ok")
+            self.end_headers()
+            return
         self.send_response(200)
         if self.path != "/no-length":
             self.send_header("Content-Length", str(BODY_SIZE))
@@ -59,6 +64,10 @@ class HttpTest(unittest.TestCase):
         size, seconds = speedtest.fetch(self.base + "/ok")
         self.assertEqual(size, BODY_SIZE)
         self.assertGreater(seconds, 0)
+
+    def test_fetch_follows_redirects(self):
+        size, _ = speedtest.fetch(self.base + "/redirect")
+        self.assertEqual(size, BODY_SIZE)
 
     def test_fetch_without_content_length_counts_bytes_read(self):
         size, _ = speedtest.fetch(self.base + "/no-length")
