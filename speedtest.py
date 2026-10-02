@@ -12,7 +12,7 @@ import urllib.request
 COUNT = 10
 MB = 10**6
 TIMEOUT = 30  # seconds per socket operation, not for the whole download
-USER_AGENT = "speedtest.py/1.0"
+USER_AGENT = "speedtest.py/1.0"  # the default Python-urllib agent gets 403 from e.g. Wikimedia
 
 
 def fetch(url: str) -> tuple[int, float]:
