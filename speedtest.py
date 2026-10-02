@@ -24,6 +24,7 @@ def fetch(url: str) -> tuple[int, float]:
     with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
         # Read the whole body: on a body shorter than Content-Length read() raises
         # IncompleteRead, while a read(n) loop would silently stop early.
+        # The body is held in memory: fine for images, not for multi-GB files.
         size = len(response.read())
     return size, time.perf_counter() - start
 
