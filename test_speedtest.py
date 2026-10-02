@@ -1,4 +1,6 @@
+import contextlib
 import http.client
+import io
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -9,7 +11,10 @@ BODY_SIZE = 100_000
 
 
 class Handler(BaseHTTPRequestHandler):
+    hits = 0
+
     def do_GET(self):
+        Handler.hits += 1
         self.send_response(200)
         if self.path != "/no-length":
             self.send_header("Content-Length", str(BODY_SIZE))
@@ -42,6 +47,9 @@ class HttpTest(unittest.TestCase):
         cls.server.shutdown()
         cls.server.server_close()
 
+    def setUp(self):
+        Handler.hits = 0
+
     def test_fetch_counts_body_bytes(self):
         size, seconds = speedtest.fetch(self.base + "/ok")
         self.assertEqual(size, BODY_SIZE)
@@ -54,3 +62,12 @@ class HttpTest(unittest.TestCase):
     def test_fetch_truncated_body_raises(self):
         with self.assertRaises(http.client.IncompleteRead):
             speedtest.fetch(self.base + "/truncated")
+
+    def test_cli_makes_ten_requests_and_prints_summary(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = speedtest.main([self.base + "/ok"])
+        self.assertEqual(code, 0)
+        self.assertEqual(Handler.hits, 10)
+        self.assertIn("Downloaded: 1.00 MB in 10 requests", out.getvalue())  # 10 x 100 000 B
+        self.assertIn("MB/s", out.getvalue())
