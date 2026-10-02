@@ -1,6 +1,7 @@
 import contextlib
 import http.client
 import io
+import os
 import pathlib
 import socket
 import threading
@@ -65,6 +66,10 @@ class SummaryTest(unittest.TestCase):
 class HttpTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        # with http_proxy set, urllib would send even 127.0.0.1 requests to the proxy
+        no_proxy = mock.patch.dict(os.environ, {"no_proxy": "*"})
+        no_proxy.start()
+        cls.addClassCleanup(no_proxy.stop)
         cls.server = HTTPServer(("127.0.0.1", 0), Handler)
         threading.Thread(target=cls.server.serve_forever, daemon=True).start()
         cls.base = f"http://127.0.0.1:{cls.server.server_address[1]}"
