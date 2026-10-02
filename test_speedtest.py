@@ -1,3 +1,4 @@
+import http.client
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -10,9 +11,11 @@ BODY_SIZE = 100_000
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
-        self.send_header("Content-Length", str(BODY_SIZE))
+        if self.path != "/no-length":
+            self.send_header("Content-Length", str(BODY_SIZE))
         self.end_headers()
-        self.wfile.write(b"x" * BODY_SIZE)
+        # HTTP/1.0 handler: the server closes the connection after the body
+        self.wfile.write(b"x" * (BODY_SIZE // 2 if self.path == "/truncated" else BODY_SIZE))
 
     def log_message(self, format, *args):
         pass  # the server thread would otherwise write to the captured stderr
@@ -43,3 +46,11 @@ class HttpTest(unittest.TestCase):
         size, seconds = speedtest.fetch(self.base + "/ok")
         self.assertEqual(size, BODY_SIZE)
         self.assertGreater(seconds, 0)
+
+    def test_fetch_without_content_length_counts_bytes_read(self):
+        size, _ = speedtest.fetch(self.base + "/no-length")
+        self.assertEqual(size, BODY_SIZE)
+
+    def test_fetch_truncated_body_raises(self):
+        with self.assertRaises(http.client.IncompleteRead):
+            speedtest.fetch(self.base + "/truncated")

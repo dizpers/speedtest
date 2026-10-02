@@ -13,6 +13,8 @@ def fetch(url: str) -> tuple[int, float]:
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     start = time.perf_counter()
     with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+        # Read the whole body: on a body shorter than Content-Length read() raises
+        # IncompleteRead, while a read(n) loop would silently stop early.
         size = len(response.read())
     return size, time.perf_counter() - start
 
