@@ -7,6 +7,7 @@ import threading
 import time
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from unittest import mock
 
 import speedtest
 
@@ -50,6 +51,15 @@ class SummaryTest(unittest.TestCase):
         self.assertEqual(total_bytes, 2_000_000)
         self.assertAlmostEqual(avg_seconds, 1.0)
         self.assertAlmostEqual(mb_per_s, 1.0)
+
+    def test_cli_prints_average_time_and_speed(self):
+        # 10 x (100 000 B in 0.5 s): 1.00 MB in 5 s -> 0.500 s average, 0.20 MB/s = 1.60 Mbit/s
+        out = io.StringIO()
+        with mock.patch.object(speedtest, "fetch", return_value=(100_000, 0.5)), contextlib.redirect_stdout(out):
+            code = speedtest.main(["http://example.invalid/image.jpg"])
+        self.assertEqual(code, 0)
+        self.assertIn("Average request time: 0.500 s", out.getvalue())
+        self.assertIn("Speed: 0.20 MB/s (1.60 Mbit/s)", out.getvalue())
 
 
 class HttpTest(unittest.TestCase):
