@@ -64,6 +64,12 @@ class SummaryTest(unittest.TestCase):
         self.assertIn("Average request time: 0.500 s", out.getvalue())
         self.assertIn("Speed: 0.20 MB/s (1.60 Mbit/s)", out.getvalue())
 
+    def test_cli_downloads_the_readme_image_by_default(self):
+        with mock.patch.object(speedtest, "fetch", return_value=(100_000, 0.5)) as fetch, \
+                contextlib.redirect_stdout(io.StringIO()):
+            speedtest.main([])
+        self.assertEqual(fetch.call_args[0][0], "https://esahubble.org/media/archives/images/large/heic1501a.jpg")
+
     def test_cli_prints_running_average_after_each_request(self):
         # 1 MB in 1 s -> avg 1.00; then 1 MB in 3 s -> 2 MB in 4 s = avg 0.50
         # (that request alone ran at 0.33, the mean of the two speeds is 0.67)

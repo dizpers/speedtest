@@ -10,6 +10,7 @@ import urllib.parse
 import urllib.request
 
 COUNT = 10
+DEFAULT_URL = "https://esahubble.org/media/archives/images/large/heic1501a.jpg"  # Hubble, 26.8 MB
 MB = 10**6
 TIMEOUT = 30  # seconds per socket operation, not for the whole download
 # esahubble.org (the README example) and Wikimedia answer 403 to the default Python-urllib agent
@@ -39,7 +40,8 @@ def summarize(results: list[tuple[int, float]]) -> tuple[int, float, float]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("url", help="file to download, e.g. a large image (20+ MB)")
+    parser.add_argument("url", nargs="?", default=DEFAULT_URL,
+                        help="file to download, 20+ MB (default: a 26.8 MB Hubble image)")
     args = parser.parse_args(argv)
 
     print(f"Downloading {args.url}, {COUNT} requests", flush=True)

@@ -5,7 +5,7 @@ What exactly is measured is defined in README.md, section «Что измеря�
 
 ## Commands
 - Tests: `python3 -m unittest -v`
-- Run: `python3 speedtest.py <url>`
+- Run: `python3 speedtest.py [url]` (default: the Hubble image from README)
 
 ## Rules
 - Standard library only, in code and tests.
