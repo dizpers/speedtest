@@ -80,16 +80,18 @@ class SummaryTest(unittest.TestCase):
         with mock.patch.object(speedtest, "fetch", fetch), contextlib.redirect_stdout(out):
             code = speedtest.main(["http://example.invalid/image.jpg"])
         self.assertEqual(code, 130)
-        self.assertIn("Downloaded: 2.50 MB in 2 requests and part of the next", out.getvalue())
+        self.assertIn("Downloaded: 2.50 MB, 2 of 10 requests finished", out.getvalue())
         self.assertIn("Average request time: 2.000 s", out.getvalue())
         self.assertIn("Speed: 0.56 MB/s (4.44 Mbit/s)", out.getvalue())
 
-    def test_ctrl_c_after_one_request_says_request(self):
+    def test_ctrl_c_between_requests(self):
+        # nothing in flight: 1 MB in 1 s -> 1.00 MB/s
         out = io.StringIO()
         with mock.patch.object(speedtest, "fetch", side_effect=[(1_000_000, 1.0), KeyboardInterrupt]), \
                 contextlib.redirect_stdout(out):
             speedtest.main(["http://example.invalid/image.jpg"])
-        self.assertIn("Downloaded: 1.00 MB in 1 request\n", out.getvalue())
+        self.assertIn("Downloaded: 1.00 MB, 1 of 10 requests finished\n", out.getvalue())
+        self.assertIn("Speed: 1.00 MB/s (8.00 Mbit/s)", out.getvalue())
 
     def test_ctrl_c_before_any_data(self):
         out = io.StringIO()

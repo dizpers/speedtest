@@ -57,12 +57,12 @@ def erase_progress_line() -> None:
         print("\r" + " " * 40 + "\r", end="", file=sys.stderr, flush=True)
 
 
-def print_report(results: list[tuple[int, float]], partial: tuple[int, float] | None = None) -> None:
+def print_report(results: list[tuple[int, float]], partial: tuple[int, float] | None = None,
+                 interrupted: bool = False) -> None:
     """Print the summary; after Ctrl+C, partial is the request in flight, counted in MB and speed."""
     total_bytes, _, mb_per_s = summarize((results + [partial]) if partial else results)
-    requests = f"{len(results)} request" + ("" if len(results) == 1 else "s")
-    tail = " and part of the next" if partial else ""
-    print(f"Downloaded: {total_bytes / MB:.2f} MB in {requests}{tail}")
+    done = f", {len(results)} of {COUNT} requests finished" if interrupted else f" in {len(results)} requests"
+    print(f"Downloaded: {total_bytes / MB:.2f} MB{done}")
     if results:
         print(f"Average request time: {summarize(results)[1]:.3f} s")
     print(f"Speed: {mb_per_s:.2f} MB/s ({mb_per_s * 8:.2f} Mbit/s)")
@@ -104,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
             print("Interrupted before any data arrived")
             return 130
         print("Interrupted")
-        print_report(results, partial)
+        print_report(results, partial, interrupted=True)
         return 130
     # OSError: HTTP status, DNS, connection, timeout, body shorter than Content-Length;
     # HTTPException: malformed response, e.g. a cut chunked body; ValueError: malformed URL
