@@ -10,22 +10,23 @@
 python3 speedtest.py
 ```
 
-По умолчанию качается снимок Hubble весом 26,8 МБ, всего около 270 МБ. Свой файл передаётся аргументом: `python3 speedtest.py <url>`. Это же выручит, если ссылка по умолчанию перестанет работать. Реальный прогон:
+По умолчанию качается снимок Hubble весом 26,8 МБ, всего около 270 МБ. Свой файл передаётся аргументом: `python3 speedtest.py <url>`. Это же выручит, если ссылка по умолчанию перестанет работать. Пока идёт запрос, в терминале обновляется строка со скачанным объёмом и средней скоростью. Реальный прогон:
 
 ```
- 1/10     26.84 MB   14.337 s
- 2/10     26.84 MB   11.699 s
- 3/10     26.84 MB   17.894 s
- 4/10     26.84 MB   17.299 s
- 5/10     26.84 MB   14.883 s
- 6/10     26.84 MB   22.693 s
- 7/10     26.84 MB   12.619 s
- 8/10     26.84 MB   12.578 s
- 9/10     26.84 MB   10.796 s
-10/10     26.84 MB   13.404 s
+Downloading https://esahubble.org/media/archives/images/large/heic1501a.jpg, 10 requests
+ 1/10     26.84 MB   13.579 s  avg 1.98 MB/s
+ 2/10     26.84 MB   12.564 s  avg 2.05 MB/s
+ 3/10     26.84 MB   11.422 s  avg 2.14 MB/s
+ 4/10     26.84 MB   20.331 s  avg 1.85 MB/s
+ 5/10     26.84 MB   15.070 s  avg 1.84 MB/s
+ 6/10     26.84 MB   17.965 s  avg 1.77 MB/s
+ 7/10     26.84 MB   10.642 s  avg 1.85 MB/s
+ 8/10     26.84 MB   12.713 s  avg 1.88 MB/s
+ 9/10     26.84 MB   12.734 s  avg 1.90 MB/s
+10/10     26.84 MB   13.499 s  avg 1.91 MB/s
 Downloaded: 268.42 MB in 10 requests
-Average request time: 14.820 s
-Speed: 1.81 MB/s (14.49 Mbit/s)
+Average request time: 14.052 s
+Speed: 1.91 MB/s (15.28 Mbit/s)
 ```
 
 Тесты работают без сети: `python3 -m unittest -v`. Если Python с python.org падает с `CERTIFICATE_VERIFY_FAILED`, запустите его `Install Certificates.command`.
