@@ -52,23 +52,20 @@ def summarize(results: list[tuple[int, float]]) -> tuple[int, float, float]:
     return total_bytes, total_seconds / len(results), total_bytes / MB / total_seconds
 
 
-def progress_line(i: int, results: list[tuple[int, float]]) -> Callable[[int, float], None]:
-    """Return a fetch() progress callback that redraws one stderr line at most every REDRAW s."""
-    drawn_at = 0.0
-
-    def draw(size: int, seconds: float) -> None:
-        nonlocal drawn_at
-        if seconds - drawn_at >= REDRAW:
-            drawn_at = seconds
-            avg = summarize(results + [(size, seconds)])[2]
-            print(f"\r{i:2}/{COUNT}  {size / MB:8.2f} MB  avg {avg:.2f} MB/s", end="", file=sys.stderr, flush=True)
-
-    return draw
-
-
 def erase_progress_line() -> None:
     if sys.stderr.isatty():
         print("\r" + " " * 40 + "\r", end="", file=sys.stderr, flush=True)
+
+
+def print_report(results: list[tuple[int, float]], partial: tuple[int, float] | None = None) -> None:
+    """Print the summary; after Ctrl+C, partial is the request in flight, counted in MB and speed."""
+    total_bytes, _, mb_per_s = summarize((results + [partial]) if partial else results)
+    requests = f"{len(results)} request" + ("" if len(results) == 1 else "s")
+    tail = " and part of the next" if partial else ""
+    print(f"Downloaded: {total_bytes / MB:.2f} MB in {requests}{tail}")
+    if results:
+        print(f"Average request time: {summarize(results)[1]:.3f} s")
+    print(f"Speed: {mb_per_s:.2f} MB/s ({mb_per_s * 8:.2f} Mbit/s)")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -78,15 +75,37 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     print(f"Downloading {args.url}, {COUNT} requests", flush=True)
-    results = []
+    results: list[tuple[int, float]] = []
+    partial: tuple[int, float] | None = None  # (bytes, seconds) of the request in flight
+    drawn_at = 0.0
+
+    def progress(size: int, seconds: float) -> None:
+        nonlocal partial, drawn_at
+        partial = (size, seconds)
+        # live line only on a terminal: no \r garbage in logs, pipes and CI
+        if sys.stderr.isatty() and seconds - drawn_at >= REDRAW:
+            drawn_at = seconds
+            avg = summarize(results + [partial])[2]
+            print(f"\r{len(results) + 1:2}/{COUNT}  {size / MB:8.2f} MB  avg {avg:.2f} MB/s",
+                  end="", file=sys.stderr, flush=True)
+
     try:
         for i in range(1, COUNT + 1):
-            # live progress only on a terminal: no \r garbage in logs, pipes and CI
-            size, seconds = fetch(args.url, progress_line(i, results) if sys.stderr.isatty() else None)
+            drawn_at = 0.0
+            size, seconds = fetch(args.url, progress)
             erase_progress_line()
             results.append((size, seconds))
+            partial = None
             avg = summarize(results)[2]
             print(f"{i:2}/{COUNT}  {size / MB:8.2f} MB  {seconds:7.3f} s  avg {avg:.2f} MB/s", flush=True)
+    except KeyboardInterrupt:
+        erase_progress_line()
+        if not results and not partial:
+            print("Interrupted before any data arrived")
+            return 130
+        print("Interrupted")
+        print_report(results, partial)
+        return 130
     # OSError: HTTP status, DNS, connection, timeout, body shorter than Content-Length;
     # HTTPException: malformed response, e.g. a cut chunked body; ValueError: malformed URL
     except (OSError, http.client.HTTPException, ValueError) as e:
@@ -94,10 +113,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {e}", file=sys.stderr)
         return 1
 
-    total_bytes, avg_seconds, mb_per_s = summarize(results)
-    print(f"Downloaded: {total_bytes / MB:.2f} MB in {COUNT} requests")
-    print(f"Average request time: {avg_seconds:.3f} s")
-    print(f"Speed: {mb_per_s:.2f} MB/s ({mb_per_s * 8:.2f} Mbit/s)")
+    print_report(results)
     return 0
 
 
