@@ -42,12 +42,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("url", help="file to download, e.g. a large image (20+ MB)")
     args = parser.parse_args(argv)
 
+    print(f"Downloading {args.url}, {COUNT} requests", flush=True)
     results = []
     try:
         for i in range(1, COUNT + 1):
             size, seconds = fetch(args.url)
-            print(f"{i:2}/{COUNT}  {size / MB:8.2f} MB  {seconds:7.3f} s")
             results.append((size, seconds))
+            avg = summarize(results)[2]
+            print(f"{i:2}/{COUNT}  {size / MB:8.2f} MB  {seconds:7.3f} s  avg {avg:.2f} MB/s", flush=True)
     # OSError: HTTP status, DNS, connection, timeout; HTTPException: truncated body;
     # ValueError: malformed URL
     except (OSError, http.client.HTTPException, ValueError) as e:

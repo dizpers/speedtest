@@ -64,6 +64,18 @@ class SummaryTest(unittest.TestCase):
         self.assertIn("Average request time: 0.500 s", out.getvalue())
         self.assertIn("Speed: 0.20 MB/s (1.60 Mbit/s)", out.getvalue())
 
+    def test_cli_prints_running_average_after_each_request(self):
+        # 1 MB in 1 s -> avg 1.00; then 1 MB in 3 s -> 2 MB in 4 s = avg 0.50
+        # (that request alone ran at 0.33, the mean of the two speeds is 0.67)
+        out = io.StringIO()
+        results = [(1_000_000, 1.0), (1_000_000, 3.0)] + [(1_000_000, 1.0)] * 8
+        with mock.patch.object(speedtest, "fetch", side_effect=results), contextlib.redirect_stdout(out):
+            speedtest.main(["http://example.invalid/image.jpg"])
+        lines = out.getvalue().splitlines()
+        self.assertEqual(lines[0], "Downloading http://example.invalid/image.jpg, 10 requests")
+        self.assertTrue(lines[1].endswith("avg 1.00 MB/s"), lines[1])
+        self.assertTrue(lines[2].endswith("avg 0.50 MB/s"), lines[2])
+
 
 class HttpTest(unittest.TestCase):
     @classmethod
