@@ -1,5 +1,4 @@
 import contextlib
-import http.client
 import io
 import os
 import pathlib
@@ -7,6 +6,7 @@ import socket
 import threading
 import time
 import unittest
+import urllib.error
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest import mock
 
@@ -157,7 +157,7 @@ class HttpTest(unittest.TestCase):
         self.assertEqual(size, BODY_SIZE)
 
     def test_fetch_truncated_body_raises(self):
-        with self.assertRaises(http.client.IncompleteRead):
+        with self.assertRaises(urllib.error.ContentTooShortError):
             speedtest.fetch(self.base + "/truncated")
 
     def test_fetch_rejects_non_http_url(self):
