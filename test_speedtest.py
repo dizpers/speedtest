@@ -18,9 +18,11 @@ DELAY = 0.1
 
 class Handler(BaseHTTPRequestHandler):
     hits = 0
+    user_agent = None
 
     def do_GET(self):
         Handler.hits += 1
+        Handler.user_agent = self.headers.get("User-Agent")
         if self.path == "/missing":
             self.send_error(404)
             return
@@ -86,6 +88,11 @@ class HttpTest(unittest.TestCase):
         size, seconds = speedtest.fetch(self.base + "/ok")
         self.assertEqual(size, BODY_SIZE)
         self.assertGreater(seconds, 0)
+
+    def test_fetch_does_not_send_the_default_user_agent(self):
+        # esahubble.org (the README example) answers 403 to Python-urllib/3.x
+        speedtest.fetch(self.base + "/ok")
+        self.assertFalse(Handler.user_agent.startswith("Python-urllib"), Handler.user_agent)
 
     def test_fetch_times_from_request_start_to_last_byte(self):
         # /slow waits DELAY before the headers and DELAY before the body
