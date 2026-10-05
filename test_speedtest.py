@@ -99,6 +99,18 @@ class HttpTest(unittest.TestCase):
         _, seconds = speedtest.fetch(self.base + "/slow")
         self.assertGreaterEqual(seconds, 2 * DELAY)
 
+    def test_fetch_gives_up_on_a_silent_server(self):
+        silent = socket.socket()
+        silent.bind(("127.0.0.1", 0))
+        silent.listen()  # the OS accepts the connection, nobody ever answers
+        self.addCleanup(silent.close)
+        socket.setdefaulttimeout(2)  # without fetch()'s own timeout: a failure below, not a hang
+        self.addCleanup(socket.setdefaulttimeout, None)
+        start = time.perf_counter()
+        with mock.patch.object(speedtest, "TIMEOUT", 0.2), self.assertRaises(OSError):
+            speedtest.fetch(f"http://127.0.0.1:{silent.getsockname()[1]}/")
+        self.assertLess(time.perf_counter() - start, 1)
+
     def test_fetch_follows_redirects(self):
         size, _ = speedtest.fetch(self.base + "/redirect")
         self.assertEqual(size, BODY_SIZE)
