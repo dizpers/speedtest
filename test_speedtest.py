@@ -26,6 +26,9 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/missing":
             self.send_error(404)
             return
+        if self.path == "/garbage":  # not an HTTP status line
+            self.wfile.write(b"garbage\r\n\r\n")
+            return
         if self.path == "/chunked-cut":  # one 50 000 B chunk, then the connection closes
             self.send_response(200)
             self.send_header("Transfer-Encoding", "chunked")
@@ -181,6 +184,19 @@ class HttpTest(unittest.TestCase):
         sizes = []
         speedtest.fetch(self.base + "/ok", lambda size, seconds: sizes.append(size))
         self.assertEqual(sizes[-1], BODY_SIZE)
+
+    def test_fetch_reports_progress_in_seconds_since_request_start(self):
+        seen = []
+        _, seconds = speedtest.fetch(self.base + "/slow", lambda size, s: seen.append(s))
+        self.assertGreaterEqual(seen[-1], 2 * DELAY)
+        self.assertLessEqual(seen[-1], seconds)
+
+    def test_cli_reports_a_malformed_response(self):
+        err = io.StringIO()
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+            code = speedtest.main([self.base + "/garbage"])
+        self.assertEqual(code, 1)
+        self.assertTrue(err.getvalue().startswith("error: "), err.getvalue())
 
     def test_cli_draws_progress_on_a_terminal_only(self):
         class Terminal(io.StringIO):
