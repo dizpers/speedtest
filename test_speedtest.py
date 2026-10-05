@@ -97,20 +97,32 @@ class SummaryTest(unittest.TestCase):
         self.assertIn("Speed: 0.42 MB/s (3.33 Mbit/s)", out.getvalue())
 
     def test_ctrl_c_inside_the_first_request(self):
-        # 0.5 MB arrived, Ctrl+C 2 s after the request started: 0.25 MB/s = 2.00 Mbit/s,
+        # 0.5 MB arrived, Ctrl+C 1.5 s after the request started: 0.33 MB/s = 2.67 Mbit/s,
         # no request finished, so no average request time
         def fetch(url, progress):
             progress(500_000, 0.5)
             raise KeyboardInterrupt
 
         out = io.StringIO()
-        with mock.patch.object(speedtest, "fetch", fetch), mock.patch.object(speedtest.time, "perf_counter", side_effect=[10.0, 12.0]), \
+        with mock.patch.object(speedtest, "fetch", fetch), mock.patch.object(speedtest.time, "perf_counter", side_effect=[10.0, 11.5]), \
                 contextlib.redirect_stdout(out):
             code = speedtest.main(["http://example.invalid/image.jpg"])
         self.assertEqual(code, 130)
         self.assertIn("Downloaded: 0.50 MB, 0 of 10 requests finished", out.getvalue())
         self.assertNotIn("Average request time", out.getvalue())
-        self.assertIn("Speed: 0.25 MB/s (2.00 Mbit/s)", out.getvalue())
+        self.assertIn("Speed: 0.33 MB/s (2.67 Mbit/s)", out.getvalue())
+
+    def test_ctrl_c_counts_a_request_stalled_before_its_first_byte(self):
+        # 1 MB in 1 s, then the second request hangs without a byte; Ctrl+C 2.5 s into it:
+        # 1 MB in 3.5 s -> 0.29 MB/s = 2.29 Mbit/s
+        out = io.StringIO()
+        with mock.patch.object(speedtest, "fetch", side_effect=[(1_000_000, 1.0), KeyboardInterrupt]), \
+                mock.patch.object(speedtest.time, "perf_counter", side_effect=[0.0, 1.0, 3.5]), \
+                contextlib.redirect_stdout(out):
+            speedtest.main(["http://example.invalid/image.jpg"])
+        self.assertIn("Downloaded: 1.00 MB, 1 of 10 requests finished", out.getvalue())
+        self.assertIn("Average request time: 1.000 s", out.getvalue())
+        self.assertIn("Speed: 0.29 MB/s (2.29 Mbit/s)", out.getvalue())
 
     def test_ctrl_c_between_requests(self):
         # the finished request reported progress like the real fetch() does; it must count once:

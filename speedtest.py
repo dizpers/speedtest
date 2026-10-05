@@ -80,6 +80,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Downloading {args.url}, {COUNT} requests", flush=True)
     results: list[tuple[int, float]] = []
     in_flight = 0  # bytes of the request in flight, reported by fetch()
+    started: float | None = None  # when the request in flight started
     drawn_at = 0.0
 
     def progress(size: int, seconds: float) -> None:
@@ -97,16 +98,16 @@ def main(argv: list[str] | None = None) -> int:
             drawn_at = 0.0
             started = time.perf_counter()
             size, seconds = fetch(args.url, progress)
-            in_flight = 0
+            in_flight, started = 0, None
             erase_progress_line()
             results.append((size, seconds))
             avg = summarize(results)[2]
             print(f"{i:2}/{COUNT}  {size / MB:8.2f} MB  {seconds:7.3f} s  avg {avg:.2f} MB/s", flush=True)
     except KeyboardInterrupt:
         erase_progress_line()
-        # the request in flight counts up to now, not up to its last chunk: a stall is slowness too
-        partial = (in_flight, time.perf_counter() - started) if in_flight else None
-        if not results and not partial:
+        # the request in flight counts up to now, even without a byte yet: a stall is slowness too
+        partial = (in_flight, time.perf_counter() - started) if started is not None else None
+        if not results and not in_flight:
             print("Interrupted before any data arrived")
             return 130
         print("Interrupted")
