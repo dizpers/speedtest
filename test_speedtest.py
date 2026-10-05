@@ -107,6 +107,25 @@ class HttpTest(unittest.TestCase):
         self.assertEqual(size, BODY_SIZE)
         self.assertGreater(seconds, 0)
 
+    def test_fetch_reports_progress_up_to_the_full_body(self):
+        sizes = []
+        speedtest.fetch(self.base + "/ok", lambda size, seconds: sizes.append(size))
+        self.assertEqual(sizes[-1], BODY_SIZE)
+
+    def test_cli_draws_progress_on_a_terminal_only(self):
+        class Terminal(io.StringIO):
+            def isatty(self):
+                return True
+
+        for err, terminal in ((Terminal(), True), (io.StringIO(), False)):
+            with self.subTest(terminal=terminal):
+                out = io.StringIO()
+                with mock.patch.object(speedtest, "REDRAW", 0), \
+                        contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                    speedtest.main([self.base + "/ok"])
+                self.assertEqual("MB/s" in err.getvalue(), terminal)  # the progress line itself
+                self.assertNotIn("\r", out.getvalue())
+
     def test_fetch_does_not_send_the_default_user_agent(self):
         # esahubble.org (the README example) answers 403 to Python-urllib/3.x
         speedtest.fetch(self.base + "/ok")
