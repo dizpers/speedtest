@@ -263,6 +263,15 @@ class HttpTest(unittest.TestCase):
             speedtest.fetch(self.base + "/chunked-cut")
         self.assertIn("after 50000 bytes", str(cm.exception))
 
+    def test_fetch_accepts_https(self):
+        # passes the scheme check and fails only on connecting to a closed local port
+        closed = socket.socket()
+        closed.bind(("127.0.0.1", 0))
+        port = closed.getsockname()[1]
+        closed.close()
+        with self.assertRaises(urllib.error.URLError):
+            speedtest.fetch(f"https://127.0.0.1:{port}/")
+
     def test_fetch_rejects_non_http_url(self):
         # urllib would happily read a local file and report it as download speed
         with self.assertRaises(ValueError):
