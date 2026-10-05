@@ -61,11 +61,10 @@ def erase_progress_line() -> None:
         print("\r" + " " * 40 + "\r", end="", file=sys.stderr, flush=True)
 
 
-def print_report(results: list[tuple[int, float]], partial: tuple[int, float] | None = None,
-                 interrupted: bool = False) -> None:
+def print_report(results: list[tuple[int, float]], partial: tuple[int, float] | None = None) -> None:
     """Print the summary; after Ctrl+C, partial is the request in flight, counted in MB and speed."""
     total_bytes, _, mb_per_s = summarize((results + [partial]) if partial else results)
-    done = f", {len(results)} of {COUNT} requests finished" if interrupted else f" in {len(results)} requests"
+    done = f", {len(results)} of {COUNT} requests finished" if len(results) < COUNT else f" in {COUNT} requests"
     print(f"Downloaded: {total_bytes / MB:.2f} MB{done}")
     if results:
         print(f"Average request time: {summarize(results)[1]:.3f} s")
@@ -111,7 +110,7 @@ def main(argv: list[str] | None = None) -> int:
             print("Interrupted before any data arrived")
             return 130
         print("Interrupted")
-        print_report(results, partial, interrupted=True)
+        print_report(results, partial)
         return 130
     # OSError: HTTP status, DNS, connection, timeout, cut body (ContentTooShortError);
     # HTTPException: malformed response, e.g. a bad status line; ValueError: malformed URL
