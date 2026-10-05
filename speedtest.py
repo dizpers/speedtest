@@ -32,10 +32,14 @@ def fetch(url: str, progress: Callable[[int, float], None] | None = None) -> tup
     with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
         expected = response.headers.get("Content-Length")
         size = 0
-        while chunk := response.read(64 * 1024):
-            size += len(chunk)
-            if progress:
-                progress(size, time.perf_counter() - start)
+        try:
+            while chunk := response.read(64 * 1024):
+                size += len(chunk)
+                if progress:
+                    progress(size, time.perf_counter() - start)
+        except http.client.IncompleteRead as e:  # a chunked body cut short
+            raise urllib.error.ContentTooShortError(
+                f"retrieval incomplete: the connection closed after {size + len(e.partial)} bytes", None) from None
     seconds = time.perf_counter() - start
     # read(n) returns b"" at a premature EOF instead of raising, so check the length here
     # (the same check and error as urllib.request.urlretrieve)
@@ -109,8 +113,8 @@ def main(argv: list[str] | None = None) -> int:
         print("Interrupted")
         print_report(results, partial, interrupted=True)
         return 130
-    # OSError: HTTP status, DNS, connection, timeout, body shorter than Content-Length;
-    # HTTPException: malformed response, e.g. a cut chunked body; ValueError: malformed URL
+    # OSError: HTTP status, DNS, connection, timeout, cut body (ContentTooShortError);
+    # HTTPException: malformed response, e.g. a bad status line; ValueError: malformed URL
     except (OSError, http.client.HTTPException, ValueError) as e:
         erase_progress_line()
         print(f"error: {e}", file=sys.stderr)

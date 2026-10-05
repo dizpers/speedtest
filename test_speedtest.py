@@ -26,6 +26,12 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/missing":
             self.send_error(404)
             return
+        if self.path == "/chunked-cut":  # one 50 000 B chunk, then the connection closes
+            self.send_response(200)
+            self.send_header("Transfer-Encoding", "chunked")
+            self.end_headers()
+            self.wfile.write(b"%x\r\n%s\r\n" % (BODY_SIZE // 2, b"x" * (BODY_SIZE // 2)))
+            return
         if self.path == "/redirect":
             self.send_response(302)
             self.send_header("Location", "/ok")
@@ -223,6 +229,11 @@ class HttpTest(unittest.TestCase):
     def test_fetch_truncated_body_raises(self):
         with self.assertRaises(urllib.error.ContentTooShortError):
             speedtest.fetch(self.base + "/truncated")
+
+    def test_fetch_cut_chunked_body_raises_with_the_bytes_received(self):
+        with self.assertRaises(urllib.error.ContentTooShortError) as cm:
+            speedtest.fetch(self.base + "/chunked-cut")
+        self.assertIn("after 50000 bytes", str(cm.exception))
 
     def test_fetch_rejects_non_http_url(self):
         # urllib would happily read a local file and report it as download speed
