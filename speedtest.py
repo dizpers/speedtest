@@ -37,9 +37,9 @@ def fetch(url: str, progress: Callable[[int, float], None] | None = None) -> tup
                 size += len(chunk)
                 if progress:
                     progress(size, time.perf_counter() - start)
-        except http.client.IncompleteRead as e:  # a chunked body cut short
+        except http.client.IncompleteRead:  # a chunked body cut short
             raise urllib.error.ContentTooShortError(
-                f"retrieval incomplete: the connection closed after {size + len(e.partial)} bytes", None) from None
+                "retrieval incomplete: the connection closed in the middle of a chunked body", None) from None
     seconds = time.perf_counter() - start
     # read(n) returns b"" at a premature EOF instead of raising, so check the length here
     # (the same check and error as urllib.request.urlretrieve)

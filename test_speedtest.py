@@ -258,10 +258,11 @@ class HttpTest(unittest.TestCase):
         with self.assertRaises(urllib.error.ContentTooShortError):
             speedtest.fetch(self.base + "/truncated")
 
-    def test_fetch_cut_chunked_body_raises_with_the_bytes_received(self):
+    def test_fetch_cut_chunked_body_raises(self):
+        # no byte count in the message: http.client drops the bytes of a chunk cut midway
         with self.assertRaises(urllib.error.ContentTooShortError) as cm:
             speedtest.fetch(self.base + "/chunked-cut")
-        self.assertIn("after 50000 bytes", str(cm.exception))
+        self.assertIn("in the middle of a chunked body", str(cm.exception))
 
     def test_fetch_accepts_https(self):
         # passes the scheme check and fails only on connecting to a closed local port
