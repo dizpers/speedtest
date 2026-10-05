@@ -65,8 +65,9 @@ class SummaryTest(unittest.TestCase):
         self.assertIn("Speed: 0.20 MB/s (1.60 Mbit/s)", out.getvalue())
 
     def test_ctrl_c_prints_the_report_for_what_was_downloaded(self):
-        # 1 MB in 1 s, 1 MB in 3 s, then Ctrl+C 0.5 s into the third request after 0.5 MB:
-        # 2.50 MB in 4.5 s -> 0.56 MB/s = 4.44 Mbit/s; the two finished requests average 2.000 s
+        # 1 MB in 1 s, 1 MB in 3 s, then Ctrl+C 2 s into the third request, which got 0.5 MB
+        # in its first 0.5 s and then stalled: 2.50 MB in 6 s -> 0.42 MB/s = 3.33 Mbit/s;
+        # the two finished requests average 2.000 s
         finished = iter([(1_000_000, 1.0), (1_000_000, 3.0)])
 
         def fetch(url, progress):
@@ -77,18 +78,45 @@ class SummaryTest(unittest.TestCase):
             raise KeyboardInterrupt
 
         out = io.StringIO()
-        with mock.patch.object(speedtest, "fetch", fetch), contextlib.redirect_stdout(out):
+        clock = [0.0, 1.0, 4.0, 6.0]  # main(): start of requests 1, 2, 3, then the Ctrl+C
+        with mock.patch.object(speedtest, "fetch", fetch), mock.patch.object(speedtest.time, "perf_counter", side_effect=clock), \
+                contextlib.redirect_stdout(out):
             code = speedtest.main(["http://example.invalid/image.jpg"])
         self.assertEqual(code, 130)
         self.assertIn("Downloaded: 2.50 MB, 2 of 10 requests finished", out.getvalue())
         self.assertIn("Average request time: 2.000 s", out.getvalue())
-        self.assertIn("Speed: 0.56 MB/s (4.44 Mbit/s)", out.getvalue())
+        self.assertIn("Speed: 0.42 MB/s (3.33 Mbit/s)", out.getvalue())
+
+    def test_ctrl_c_inside_the_first_request(self):
+        # 0.5 MB arrived, Ctrl+C 2 s after the request started: 0.25 MB/s = 2.00 Mbit/s,
+        # no request finished, so no average request time
+        def fetch(url, progress):
+            progress(500_000, 0.5)
+            raise KeyboardInterrupt
+
+        out = io.StringIO()
+        with mock.patch.object(speedtest, "fetch", fetch), mock.patch.object(speedtest.time, "perf_counter", side_effect=[10.0, 12.0]), \
+                contextlib.redirect_stdout(out):
+            code = speedtest.main(["http://example.invalid/image.jpg"])
+        self.assertEqual(code, 130)
+        self.assertIn("Downloaded: 0.50 MB, 0 of 10 requests finished", out.getvalue())
+        self.assertNotIn("Average request time", out.getvalue())
+        self.assertIn("Speed: 0.25 MB/s (2.00 Mbit/s)", out.getvalue())
 
     def test_ctrl_c_between_requests(self):
-        # nothing in flight: 1 MB in 1 s -> 1.00 MB/s
+        # the finished request reported progress like the real fetch() does; it must count once:
+        # 1 MB in 1 s -> 1.00 MB/s
+        finished = iter([(1_000_000, 1.0)])
+
+        def fetch(url, progress):
+            result = next(finished, None)
+            if not result:
+                raise KeyboardInterrupt
+            progress(*result)
+            return result
+
         out = io.StringIO()
-        with mock.patch.object(speedtest, "fetch", side_effect=[(1_000_000, 1.0), KeyboardInterrupt]), \
-                contextlib.redirect_stdout(out):
+        with mock.patch.object(speedtest, "fetch", fetch), contextlib.redirect_stdout(out):
             speedtest.main(["http://example.invalid/image.jpg"])
         self.assertIn("Downloaded: 1.00 MB, 1 of 10 requests finished\n", out.getvalue())
         self.assertIn("Speed: 1.00 MB/s (8.00 Mbit/s)", out.getvalue())

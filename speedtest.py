@@ -76,30 +76,33 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"Downloading {args.url}, {COUNT} requests", flush=True)
     results: list[tuple[int, float]] = []
-    partial: tuple[int, float] | None = None  # (bytes, seconds) of the request in flight
+    in_flight = 0  # bytes of the request in flight, reported by fetch()
     drawn_at = 0.0
 
     def progress(size: int, seconds: float) -> None:
-        nonlocal partial, drawn_at
-        partial = (size, seconds)
+        nonlocal in_flight, drawn_at
+        in_flight = size
         # live line only on a terminal: no \r garbage in logs, pipes and CI
         if sys.stderr.isatty() and seconds - drawn_at >= REDRAW:
             drawn_at = seconds
-            avg = summarize(results + [partial])[2]
+            avg = summarize(results + [(size, seconds)])[2]
             print(f"\r{len(results) + 1:2}/{COUNT}  {size / MB:8.2f} MB  avg {avg:.2f} MB/s",
                   end="", file=sys.stderr, flush=True)
 
     try:
         for i in range(1, COUNT + 1):
             drawn_at = 0.0
+            started = time.perf_counter()
             size, seconds = fetch(args.url, progress)
+            in_flight = 0
             erase_progress_line()
             results.append((size, seconds))
-            partial = None
             avg = summarize(results)[2]
             print(f"{i:2}/{COUNT}  {size / MB:8.2f} MB  {seconds:7.3f} s  avg {avg:.2f} MB/s", flush=True)
     except KeyboardInterrupt:
         erase_progress_line()
+        # the request in flight counts up to now, not up to its last chunk: a stall is slowness too
+        partial = (in_flight, time.perf_counter() - started) if in_flight else None
         if not results and not partial:
             print("Interrupted before any data arrived")
             return 130
